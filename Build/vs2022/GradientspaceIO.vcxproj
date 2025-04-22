@@ -19,7 +19,7 @@
     <ClCompile Include="..\..\Private\MeshIO\*.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="GradientspaceCore.vcxproj">
+    <ProjectReference Include="..\..\..\GradientspaceCore\Build\vs2022\GradientspaceCore.vcxproj">
       <Project>{31cddc33-a9c4-481e-b4aa-f24afbefe596}</Project>
     </ProjectReference>
   </ItemGroup>
