@@ -16,6 +16,9 @@ struct GRADIENTSPACEIO_API WriteOptions
 	bool bVertexColors = true;
 	bool bNormals = true;
 	bool bUVs = true;
+
+	//! if true, triangle orientation will be inverted on write (by swapping A and B in each tri)
+	bool bReverseTriOrientation = false;
 };
 
 GRADIENTSPACEIO_API

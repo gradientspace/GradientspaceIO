@@ -200,8 +200,7 @@ bool GS::OBJWriter::WriteOBJ(
 				TriUVs[j] = UVsIndex.GetIndexForValue(VtxUvs[j], false);
 		}
 
-		const bool bInvertMesh = true;
-		if (bInvertMesh)
+		if (Options.bReverseTriOrientation)
 		{
 			int tmp = TriVertices.A; TriVertices.A = TriVertices.B; TriVertices.B = tmp;
 			tmp = TriUVs.A; TriUVs.A = TriUVs.B; TriUVs.B = tmp;
