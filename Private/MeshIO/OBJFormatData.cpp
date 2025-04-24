@@ -54,7 +54,7 @@ void GS::DenseMeshToOBJFormatData(const DenseMesh& Mesh, OBJFormatData& OBJDataO
 		Triangles.push_back({ ti, GroupID });
 	}
 
-	bool bHaveGroups = AllGroupIDs.size() > 1;
+	[[maybe_unused]] bool bHaveGroups = AllGroupIDs.size() > 1;
 	std::stable_sort(Triangles.begin(), Triangles.end());
 
 	bool bHaveNormalIndexMap = false;
@@ -88,7 +88,7 @@ void GS::DenseMeshToOBJFormatData(const DenseMesh& Mesh, OBJFormatData& OBJDataO
 	OBJDataOut.FaceStream.reserve(NumTriangles);
 	OBJDataOut.Triangles.reserve(NumTriangles);
 
-	int CurGroupID = std::numeric_limits<int>::max();
+	//int CurGroupID = std::numeric_limits<int>::max();
 	for ( int k = 0; k < NumTriangles; ++k )
 	{
 		const MeshTri& SortedTri = Triangles[k];
@@ -216,7 +216,7 @@ void GS::PolyMeshToOBJFormatData(const PolyMesh& Mesh, OBJFormatData& OBJDataOut
 	OBJDataOut.Quads.reserve(Mesh.GetQuadCount());
 	OBJDataOut.Polygons.reserve(Mesh.GetPolygonCount());
 
-	int CurGroupID = std::numeric_limits<int>::max();
+	//int CurGroupID = std::numeric_limits<int>::max();
 	for (int k = 0; k < NumFaces; ++k)
 	{
 		int GroupID = SortedFaces[k].Group;

@@ -120,7 +120,7 @@ static void append_uv(char* String, GS::OBJFormatData& Data)
 static int index_of_nonspace(const char* String, int start_index, char c)
 {
 	int cur_index = start_index;
-	bool bFound = false;
+	//bool bFound = false;
 	while (1)
 	{
 		if (String[cur_index] == c)
@@ -261,7 +261,7 @@ bool GS::OBJReader::ReadOBJ(
 		return false;
 
 	FILE* FilePtr = nullptr;
-	errno_t error = fopen_s(&FilePtr, Path.c_str(), "r");
+	[[maybe_unused]] errno_t error = fopen_s(&FilePtr, Path.c_str(), "r");
 	if (!FilePtr)
 		return false;
 
