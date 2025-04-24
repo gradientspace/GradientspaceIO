@@ -134,7 +134,7 @@ static int index_of_nonspace(const char* String, int start_index, char c)
 static int index_of_substring(const char* String, const char* Substring)
 {
 	// arbitrary max...
-	int M = (int)strnlen_s(Substring, 1024);
+	int M = (int)strnlen(Substring, 1024);
 	if (M >= 1023) return -1;
 	int i = 0;
 	while (String[i] != null_char)
@@ -260,8 +260,9 @@ bool GS::OBJReader::ReadOBJ(
 	if (!std::filesystem::exists(FilePath))
 		return false;
 
-	FILE* FilePtr = nullptr;
-	[[maybe_unused]] errno_t error = fopen_s(&FilePtr, Path.c_str(), "r");
+	// why is this using FILE* api...?
+
+	FILE* FilePtr = fopen(Path.c_str(), "r");
 	if (!FilePtr)
 		return false;
 
@@ -286,7 +287,7 @@ bool GS::OBJReader::ReadOBJ(
 		if (Result == nullptr) { bLastLineReadOK = false; continue; }
 
 		char* String = &LineBuffer[0];
-		int N = (int)strnlen_s(String, BufferSize);
+		int N = (int)strnlen(String, BufferSize);
 		if (N == 0) continue;		// empty line?
 		if (String[N] != null_char)
 		{

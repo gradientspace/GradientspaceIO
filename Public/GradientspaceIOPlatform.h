@@ -10,11 +10,25 @@
 
 #else   // ! GSIO_EMBEDDED_UE_BUILD
 
-#ifdef GRADIENTSPACEIO_EXPORTS
-#define GRADIENTSPACEIO_API __declspec(dllexport)
+
+
+#ifdef __linux__
+	#ifdef GRADIENTSPACEIO_EXPORTS
+	#define GRADIENTSPACEIO_API __attribute__((visibility("default")))
+	#else
+	#define GRADIENTSPACEIO_API 
+	#endif
 #else
-#define GRADIENTSPACEIO_API __declspec(dllimport)
+	#ifdef GRADIENTSPACEIO_EXPORTS
+	#define GRADIENTSPACEIO_API __declspec(dllexport)
+	#else
+	#define GRADIENTSPACEIO_API __declspec(dllimport)
+	#endif
 #endif
+
+
+
+
 
 
 // disable some warnings (UE disables these warnings too)
