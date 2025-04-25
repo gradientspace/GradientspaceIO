@@ -6,13 +6,7 @@ project(gradientspace_io)
 set (CMAKE_CXX_STANDARD 20)
 
 #todo support this
-option(GSIO_USE_STATIC_LIBRARY "use GradientspaceIO as a static library")
-
-# disable exceptions if desired
-option(GSCORE_DISABLE_EXCEPTIONS "disable C++ Exceptions in GradientspaceCore library" ON)
-IF(GSCORE_DISABLE_EXCEPTIONS)
-	add_definitions(-DGS_DISABLE_EXCEPTIONS)
-ENDIF(GSCORE_DISABLE_EXCEPTIONS)
+#option(GSIO_USE_STATIC_LIBRARY "use GradientspaceIO as a static library")
 
 # what are these for?
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -28,6 +22,9 @@ add_subdirectory( ${CMAKE_CURRENT_SOURCE_DIR}/../GradientspaceCore ${CMAKE_CURRE
 
 # configure the library
 add_library(gradientspace_io SHARED ${MODULE_FILES})
+
+# maintain directory tree in generated project files
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # set up the GRADIENTSPACEIO_API macro...
 target_compile_definitions(gradientspace_io PRIVATE GRADIENTSPACEIO_EXPORTS)
