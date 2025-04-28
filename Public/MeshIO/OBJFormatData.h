@@ -48,7 +48,7 @@ struct GRADIENTSPACEIO_API OBJMaterial
 
 struct GRADIENTSPACEIO_API OBJFace
 {
-	uint8_t FaceType : 4;
+	uint8_t FaceType : 4;			// 0 = triangle, 1 = quad, 2 = polygon
 	uint32_t FaceIndex : 28;
 
 	uint32_t GroupID;
@@ -75,10 +75,31 @@ struct GRADIENTSPACEIO_API OBJFormatData
 };
 
 
-
+/**
+ * Convert a DenseMesh to OBJFormatData for writing/export
+ */
 GRADIENTSPACEIO_API
 void DenseMeshToOBJFormatData(const DenseMesh& Mesh, OBJFormatData& OBJDataOut);
 
+
+struct GRADIENTSPACEIO_API OBJToDenseMeshOptions
+{
+	bool bIgnoreUVs = false;
+	bool bIgnoreNormals = false;
+	bool bIgnoreColors = false;
+};
+
+/**
+ * Extract a DenseMesh out of OBJFormatData. 
+ * Currently Quads and Polygons are tessellated strictly topologically, ie tris (0,1,2), (0,2,3), ...
+ */
+GRADIENTSPACEIO_API
+void OBJFormatDataToDenseMesh(const OBJFormatData& OBJData, DenseMesh& MeshOut,
+	const OBJToDenseMeshOptions& Options = OBJToDenseMeshOptions());
+
+/**
+ * Convert a PolyMesh to OBJFormatData for writing/export
+ */
 GRADIENTSPACEIO_API
 void PolyMeshToOBJFormatData(const PolyMesh& Mesh, OBJFormatData& OBJDataOut);
 

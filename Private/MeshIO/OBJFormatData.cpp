@@ -8,7 +8,7 @@
 #include <algorithm>
 
 
-
+using namespace GS;
 
 void GS::DenseMeshToOBJFormatData(const DenseMesh& Mesh, OBJFormatData& OBJDataOut)
 {
@@ -120,6 +120,117 @@ void GS::DenseMeshToOBJFormatData(const DenseMesh& Mesh, OBJFormatData& OBJDataO
 		Face.FaceIndex = (uint32_t)OBJDataOut.Triangles.size();
 		OBJDataOut.FaceStream.add(Face);
 		OBJDataOut.Triangles.add(NewTri);
+	}
+
+}
+
+
+void GS::OBJFormatDataToDenseMesh(const OBJFormatData& OBJData, DenseMesh& MeshOut, const OBJToDenseMeshOptions& Options)
+{
+	int NumUVs = (int)OBJData.UVs.size();
+	bool bWantUVs = (Options.bIgnoreUVs == false && NumUVs > 0);
+	auto get_uv_tri = [&](Index3i Tri) {
+		TriVtxUVs result;
+		for (int j = 0; j < 3; ++j)
+			result[j] = (Tri[j] >= 0 && Tri[j] < NumUVs) ? (Vector2f)OBJData.UVs[Tri[j]] : Vector2f::Zero();
+		return result;
+	};
+
+	int NumNormals = (int)OBJData.Normals.size();
+	bool bWantNormals = (Options.bIgnoreNormals == false && NumNormals > 0);
+	auto get_normal_tri = [&](Index3i Tri) {
+		TriVtxNormals result;
+		for (int j = 0; j < 3; ++j)
+			result[j] = (Tri[j] >= 0 && Tri[j] < NumNormals) ? (Vector3f)OBJData.Normals[Tri[j]] : Vector3f::UnitZ();
+		return result;
+	};
+
+	int NumColors = (int)OBJData.VertexColors.size();
+	bool bWantVertexColors = (Options.bIgnoreColors == false && NumColors > 0);
+	auto get_color_tri = [&](Index3i Tri) {
+		TriVtxColors result;
+		for (int j = 0; j < 3; ++j) {
+			Vector3f Color = (Tri[j] >= 0 && Tri[j] < NumColors) ? OBJData.VertexColors[Tri[j]] : Vector3f::UnitZ();
+			result[j] = Color4b(Color);
+		}
+		return result;
+	};
+
+
+	int NumVertices = (int)OBJData.VertexPositions.size();
+
+	int NumFaces = (int)OBJData.FaceStream.size();
+	int TotalNumTriangles = (int)OBJData.Triangles.size() + 2 * (int)OBJData.Quads.size();
+
+	// for now do simple polygon tessellation where count can be predicted
+	int NumPolygons = (int)OBJData.Polygons.size();
+	for (int pi = 0; pi < NumPolygons; ++pi) {
+		TotalNumTriangles += (int)OBJData.Polygons[pi].Positions.size() - 2;
+	}
+
+	MeshOut.Resize(NumVertices, TotalNumTriangles);
+
+	for (int vid = 0; vid < OBJData.VertexPositions.size(); ++vid)
+		MeshOut.SetPosition(vid, OBJData.VertexPositions[vid]);
+
+	int tid = 0;
+	for (int fid = 0; fid < OBJData.FaceStream.size(); ++fid) {
+		int FaceType = OBJData.FaceStream[fid].FaceType;
+		int TypeIndex = (int)OBJData.FaceStream[fid].FaceIndex;
+		int FaceGroupID = OBJData.FaceStream[fid].GroupID;
+		if (FaceType == 0) 
+		{
+			const OBJTriangle& Tri = OBJData.Triangles[TypeIndex];
+			Index3i TriV = Tri.Positions;
+			MeshOut.SetTriangle(tid, TriV);
+			MeshOut.SetTriGroup(tid, FaceGroupID);
+			if (bWantUVs)
+				MeshOut.SetTriVtxUVs(tid, get_uv_tri(Tri.UVs));
+			if (bWantNormals)
+				MeshOut.SetTriVtxNormals(tid, get_normal_tri(Tri.Normals));
+			if (bWantVertexColors)
+				MeshOut.SetTriVtxColors(tid, get_color_tri(TriV));
+			tid++;
+		}
+		else if (FaceType == 1)
+		{
+			const OBJQuad& Quad = OBJData.Quads[TypeIndex];
+			MeshOut.SetTriangle(tid, Index3i(Quad.Positions.A, Quad.Positions.B, Quad.Positions.C));
+			MeshOut.SetTriGroup(tid, FaceGroupID);
+			if (bWantUVs)
+				MeshOut.SetTriVtxUVs(tid, get_uv_tri( Index3i(Quad.UVs.A, Quad.UVs.B, Quad.UVs.C) ));
+			if (bWantNormals)
+				MeshOut.SetTriVtxNormals(tid, get_normal_tri( Index3i(Quad.Normals.A, Quad.Normals.B, Quad.Normals.C) ));
+			if (bWantVertexColors)
+				MeshOut.SetTriVtxColors(tid, get_color_tri( Index3i(Quad.Positions.A, Quad.Positions.B, Quad.Positions.C) ));
+			tid++;
+			MeshOut.SetTriangle(tid, Index3i(Quad.Positions.A, Quad.Positions.C, Quad.Positions.D));
+			MeshOut.SetTriGroup(tid, FaceGroupID);
+			if (bWantUVs)
+				MeshOut.SetTriVtxUVs(tid, get_uv_tri( Index3i(Quad.UVs.A, Quad.UVs.C, Quad.UVs.D) ));
+			if (bWantNormals)
+				MeshOut.SetTriVtxNormals(tid, get_normal_tri( Index3i(Quad.Normals.A, Quad.Normals.C, Quad.Normals.D) ));
+			if (bWantVertexColors)
+				MeshOut.SetTriVtxColors(tid, get_color_tri(Index3i(Quad.Positions.A, Quad.Positions.C, Quad.Positions.D)) );
+			tid++;
+		}
+		else if (FaceType == 2)
+		{
+			const OBJPolygon& Poly = OBJData.Polygons[TypeIndex];
+			int NumV = (int)Poly.Positions.size();
+			for (int i = 1; i < NumV - 1; ++i) {
+				MeshOut.SetTriangle(tid, Index3i(Poly.Positions[0], Poly.Positions[i], Poly.Positions[i+1]) );
+				MeshOut.SetTriGroup(tid, FaceGroupID);
+				if (bWantUVs)
+					MeshOut.SetTriVtxUVs(tid, get_uv_tri( Index3i(Poly.UVs[0], Poly.UVs[i], Poly.UVs[i+1]) ));
+				if (bWantNormals)
+					MeshOut.SetTriVtxNormals(tid, get_normal_tri( Index3i(Poly.Normals[0], Poly.Normals[i], Poly.Normals[i+1]) ));
+				if (bWantVertexColors)
+					MeshOut.SetTriVtxColors(tid, get_color_tri( Index3i(Poly.Positions[0], Poly.Positions[i], Poly.Positions[i+1]) ));
+				tid++;
+			}
+		}
+
 	}
 
 }
