@@ -12,6 +12,11 @@
 #include <filesystem>
 #include <stdio.h>
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable:4996) // disable secure-crt warnings for this file
+#endif
+
 using namespace GS;
 
 
@@ -410,3 +415,8 @@ bool GS::OBJReader::ReadOBJ(
 	fclose(FilePtr);
 	return true;
 }
+
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
