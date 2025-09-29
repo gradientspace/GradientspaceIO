@@ -12,6 +12,8 @@
 #include <filesystem>
 #include <stdio.h>
 
+#include "MeshIO/parse_utils.h"
+
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable:4996) // disable secure-crt warnings for this file
@@ -19,8 +21,6 @@
 
 using namespace GS;
 
-
-constexpr char null_char = '\0';
 
 
 struct OBJParsingState
@@ -30,29 +30,6 @@ struct OBJParsingState
 	bool bHaveMeshmixerGroupIDs = false;
 };
 
-
-static bool is_line_space(char c)
-{
-	return c == ' ' || c == '\t';
-}
-
-static void trim_start_end_in_place(char*& String, int& N)
-{
-	if (String[N - 1] == '\n') {
-		N--;
-		String[N] = null_char;
-	}
-	if (String[N - 1] == '\r') {
-		N--;
-		String[N] = null_char;
-	}
-	// trim empty space
-	while ( is_line_space(String[0]) && N > 0)
-	{
-		String++;
-		N--;
-	}
-}
 
 // returns char* ptr to character after next space, and index
 static char* find_after_next_space(char* String, int* first_space_index = nullptr)

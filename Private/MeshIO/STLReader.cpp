@@ -9,6 +9,7 @@
 
 #include "Core/TextIO.h"
 #include "Core/BinaryIO.h"
+#include "MeshIO/parse_utils.h"
 
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -20,14 +21,7 @@ using namespace GS::STLReader;
 
 static constexpr int MaxLineBufferSize = 4096;
 static constexpr int MaxTokenSize = 64;
-constexpr char null_char = '\0';
 
-static bool is_line_space(char c) {
-	return c == ' ' || c == '\t';
-}
-static bool is_end_of_line(char c) {
-	return c == '\r' || c == '\n' || c == null_char;
-}
 
 static bool get_next_token(const char* LineString, int& index, char* tokenOut, int& tokenLen) 
 {
@@ -52,10 +46,6 @@ static bool get_next_token(const char* LineString, int& index, char* tokenOut, i
 	return true;
 }
 
-static bool check_eol(const char* LineString, int index)
-{
-	return is_end_of_line(LineString[index]);
-}
 
 static bool is_same(const std::vector<char>& token, const char* expected)
 {
