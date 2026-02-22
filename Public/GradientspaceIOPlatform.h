@@ -12,11 +12,11 @@
 
 
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 	#ifdef GRADIENTSPACEIO_EXPORTS
 	#define GRADIENTSPACEIO_API __attribute__((visibility("default")))
 	#else
-	#define GRADIENTSPACEIO_API 
+	#define GRADIENTSPACEIO_API
 	#endif
 #else
 	#ifdef GRADIENTSPACEIO_EXPORTS
