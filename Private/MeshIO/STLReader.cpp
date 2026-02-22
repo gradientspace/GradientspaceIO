@@ -168,10 +168,19 @@ static bool ReadSTL_Ascii(
 		// if next token is a float, parse it and set in triangle
 		if (is_float_token(NextToken)) {
 			float f = 0;
+#if defined(__APPLE__) || (defined(__linux__) && !defined(__cpp_lib_to_chars))
+			// Apple Clang may not support std::from_chars for float
+			char* end = nullptr;
+			f = std::strtof(Token.data(), &end);
+			if (end == Token.data()) {
+				Error = 3; break;
+			}
+#else
 			std::from_chars_result result = std::from_chars(Token.data(), Token.data() + tokenLen, f);
 			if (result.ec != std::errc()) {
 				Error = 3; break;
 			}
+#endif
 			set_float(CurTriangle, NextToken, f);
 			NextToken = (ETokenSequence)((int)NextToken + 1);
 			bNextLineNeeded = check_eol(LineBuffer.data(), cur_index);
