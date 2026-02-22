@@ -32,6 +32,7 @@ target_compile_definitions(gradientspace_io PRIVATE GRADIENTSPACEIO_EXPORTS)
 # set include directories
 target_include_directories(gradientspace_io PUBLIC "Public")
 target_include_directories(gradientspace_io PUBLIC "Public/MeshIO")
+target_include_directories(gradientspace_io PRIVATE "Private")
 
 # add dependencies
 target_link_libraries(gradientspace_io PUBLIC gradientspace_core)
