@@ -4,6 +4,7 @@
 #include "GradientspaceIOPlatform.h"
 #include "Mesh/DenseMesh.h"
 #include "MeshIO/OBJFormatData.h"
+#include "MeshIO/MTLFormatData.h"
 
 #include <string>
 #include <vector>
@@ -22,11 +23,23 @@ struct GRADIENTSPACEIO_API ReadOptions
 };
 
 
-GRADIENTSPACEIO_API 
+GRADIENTSPACEIO_API
 bool ReadOBJ(
 	const std::string& Path,
 	OBJFormatData& OBJDataOut,
 	const ReadOptions& Options = ReadOptions()
+);
+
+
+/**
+ * Read a Wavefront .mtl material library file. Texture map paths in MTLDataOut
+ * are stored verbatim from the file (typically relative to the .mtl directory).
+ * Returns false if the file does not exist or cannot be opened.
+ */
+GRADIENTSPACEIO_API
+bool ReadMTL(
+	const std::string& Path,
+	MTLFormatData& MTLDataOut
 );
 
 

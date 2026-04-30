@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
 
 #include <filesystem>
 #include <stdio.h>
@@ -26,6 +27,13 @@ using namespace GS;
 struct OBJParsingState
 {
 	int CurrentGroupID = 0;
+
+	// material currently active (index into OBJFormatData::Materials),
+	// or OBJFace::NO_MATERIAL_ASSIGNED if no usemtl has been seen yet
+	int32_t CurrentMaterialID = OBJFace::NO_MATERIAL_ASSIGNED;
+	// map from material name to its index in OBJFormatData::Materials,
+	// used to dedupe across multiple usemtl references to the same name
+	std::unordered_map<std::string, int32_t> MaterialNameToIndex;
 
 	bool bHaveMeshmixerGroupIDs = false;
 };
@@ -326,6 +334,7 @@ bool GS::OBJReader::ReadOBJ(
 				NewFace.FaceType = 0;
 				NewFace.FaceIndex = tri_index;
 				NewFace.GroupID = ParsingState.CurrentGroupID;
+				NewFace.MaterialID = ParsingState.CurrentMaterialID;
 				OBJDataOut.FaceStream.add(NewFace);
 			}
 			else if (CurFace.PositionIndices.size() == 4)
@@ -344,6 +353,7 @@ bool GS::OBJReader::ReadOBJ(
 				NewFace.FaceType = 1;
 				NewFace.FaceIndex = quad_index;
 				NewFace.GroupID = ParsingState.CurrentGroupID;
+				NewFace.MaterialID = ParsingState.CurrentMaterialID;
 				OBJDataOut.FaceStream.add(NewFace);
 			}
 			else if (CurFace.PositionIndices.size() > 4)
@@ -372,6 +382,7 @@ bool GS::OBJReader::ReadOBJ(
 				NewFace.FaceType = 2;
 				NewFace.FaceIndex = poly_index;
 				NewFace.GroupID = ParsingState.CurrentGroupID;
+				NewFace.MaterialID = ParsingState.CurrentMaterialID;
 				OBJDataOut.FaceStream.add(NewFace);
 			}
 		}
@@ -382,12 +393,300 @@ bool GS::OBJReader::ReadOBJ(
 			// todo...
 			ParsingState.CurrentGroupID++;
 		}
+		else if (String[0] == 'm'
+			&& strncmp(String, "mtllib", 6) == 0
+			&& (String[6] == null_char || is_line_space(String[6])))
+		{
+			// "mtllib file1.mtl file2.mtl ..." — collect each space-separated
+			// token as a filename. Multiple mtllib lines accumulate.
+			char* token = find_after_next_space(String);
+			while (token != nullptr)
+			{
+				int first_space_index = -1;
+				char* nextnext = find_after_next_space(token, &first_space_index);
+				// null-terminate this token at its trailing whitespace
+				token[first_space_index] = null_char;
+				if (token[0] != null_char)
+					OBJDataOut.MTLLibs.push_back(std::string(token));
+				token = nextnext;
+			}
+		}
+		else if (String[0] == 'u'
+			&& strncmp(String, "usemtl", 6) == 0
+			&& (String[6] == null_char || is_line_space(String[6])))
+		{
+			// "usemtl <name>" — switch the active material. Allocate a new
+			// linear index the first time a name is seen; reuse on repeats.
+			char* name_token = find_after_next_space(String);
+			if (name_token != nullptr)
+			{
+				int first_space_index = -1;
+				find_after_next_space(name_token, &first_space_index);
+				name_token[first_space_index] = null_char;
+				if (name_token[0] != null_char)
+				{
+					std::string MatName(name_token);
+					auto Found = ParsingState.MaterialNameToIndex.find(MatName);
+					if (Found != ParsingState.MaterialNameToIndex.end())
+					{
+						ParsingState.CurrentMaterialID = Found->second;
+					}
+					else
+					{
+						int32_t NewIndex = (int32_t)OBJDataOut.Materials.size();
+						OBJMaterial NewMat;
+						NewMat.MaterialName = MatName;
+						OBJDataOut.Materials.add(NewMat);
+						ParsingState.MaterialNameToIndex.emplace(std::move(MatName), NewIndex);
+						ParsingState.CurrentMaterialID = NewIndex;
+					}
+				}
+			}
+		}
 	}
 
 	// currently not supporting partial color specification
 	if (OBJDataOut.VertexColors.size() != OBJDataOut.VertexPositions.size())
 		OBJDataOut.VertexColors.clear();
 
+
+	fclose(FilePtr);
+	return true;
+}
+
+
+
+
+// ===== MTL parsing =====
+
+// Read a single float from a "<keyword> <value>" line. Returns 0 if parse fails.
+static float mtl_parse_float(char* String)
+{
+	char* val = find_after_next_space(String);
+	return (val != nullptr) ? std::strtof(val, nullptr) : 0.0f;
+}
+
+// Read three floats from a "<keyword> r g b" line. Missing components default to 0.
+static Vector3f mtl_parse_color3(char* String)
+{
+	char* r = find_after_next_space(String);
+	char* g = (r != nullptr) ? find_after_next_space(r) : nullptr;
+	char* b = (g != nullptr) ? find_after_next_space(g) : nullptr;
+	float R = (r != nullptr) ? std::strtof(r, nullptr) : 0.0f;
+	float G = (g != nullptr) ? std::strtof(g, nullptr) : 0.0f;
+	float B = (b != nullptr) ? std::strtof(b, nullptr) : 0.0f;
+	return Vector3f(R, G, B);
+}
+
+// Skip past option arguments on a map_* line (-clamp, -bm, -s, -o, etc.) and
+// return a pointer to the texture filename token. The .mtl spec allows
+// option flags before the filename, e.g. "map_Kd -clamp on -bm 1.0 file.png".
+// We treat any token starting with '-' as an option, consuming one extra
+// value token for known single-value options and three for vector options.
+static char* mtl_find_map_filename(char* String)
+{
+	char* token = find_after_next_space(String);
+	while (token != nullptr && token[0] == '-')
+	{
+		// option flag — figure out how many value tokens to skip
+		int num_skip = 1;
+		if (strncmp(token, "-s", 2) == 0 || strncmp(token, "-o", 2) == 0 || strncmp(token, "-t", 2) == 0)
+			num_skip = 3; // -s/-o/-t take 3 floats (u,v,w)
+		else if (strncmp(token, "-mm", 3) == 0)
+			num_skip = 2; // -mm base gain
+		// step past the option flag itself
+		token = find_after_next_space(token);
+		for (int i = 0; i < num_skip && token != nullptr; ++i)
+			token = find_after_next_space(token);
+	}
+	return token;
+}
+
+// Null-terminate a token at the first trailing whitespace and return the token.
+static std::string mtl_token_to_string(char* token)
+{
+	if (token == nullptr) return std::string();
+	int i = 0;
+	while (token[i] != null_char && !is_line_space(token[i]))
+		i++;
+	return std::string(token, token + i);
+}
+
+static std::string mtl_parse_map_filename(char* String)
+{
+	return mtl_token_to_string(mtl_find_map_filename(String));
+}
+
+// Match a keyword at the start of a line, where the next char must be whitespace
+// or end-of-string. Avoids "Ka" matching "Kaboom" or "map_Kd" being seen as "map".
+static bool mtl_keyword_match(const char* String, const char* Keyword)
+{
+	int i = 0;
+	while (Keyword[i] != null_char)
+	{
+		if (String[i] != Keyword[i]) return false;
+		i++;
+	}
+	char next = String[i];
+	return next == null_char || is_line_space(next);
+}
+
+
+bool GS::OBJReader::ReadMTL(
+	const std::string& Path,
+	MTLFormatData& MTLDataOut)
+{
+	std::filesystem::path FilePath(Path);
+	if (!std::filesystem::exists(FilePath))
+		return false;
+
+	FILE* FilePtr = fopen(Path.c_str(), "r");
+	if (!FilePtr)
+		return false;
+
+	std::vector<char> LineBuffer;
+	const int BufferSize = 4096;
+	LineBuffer.resize(BufferSize);
+
+	MTLMaterial* Cur = nullptr;
+	bool bMayBeInFileHeader = true;
+	bool bLastLineReadOK = true;
+	while (bLastLineReadOK && !feof(FilePtr))
+	{
+		char* Result = fgets(&LineBuffer[0], BufferSize - 1, FilePtr);
+		if (Result == nullptr) { bLastLineReadOK = false; continue; }
+
+		char* String = &LineBuffer[0];
+		int N = (int)strnlen(String, BufferSize);
+		if (N == 0) continue;
+		if (String[N] != null_char) {
+			gs_runtime_assert(false);
+			bLastLineReadOK = false; continue;
+		}
+		trim_start_end_in_place(String, N);
+		if (N == 0) continue;
+
+		if (String[0] == '#' || String[0] == '/') {
+			if (bMayBeInFileHeader)
+				MTLDataOut.HeaderComments.push_back(std::string(String));
+			continue;
+		}
+		bMayBeInFileHeader = false;
+
+		// newmtl <name> — start a new material record
+		if (mtl_keyword_match(String, "newmtl")) {
+			char* name_token = find_after_next_space(String);
+			MTLMaterial NewMat;
+			NewMat.MaterialName = mtl_token_to_string(name_token);
+			MTLDataOut.Materials.push_back(std::move(NewMat));
+			Cur = &MTLDataOut.Materials.back();
+			continue;
+		}
+
+		// any subsequent line requires an active material
+		if (Cur == nullptr)
+			continue;
+
+		// scalar / color fields
+		if (mtl_keyword_match(String, "Ka")) {
+			Cur->Ka = mtl_parse_color3(String); Cur->bHas_Ka = true;
+		}
+		else if (mtl_keyword_match(String, "Kd")) {
+			Cur->Kd = mtl_parse_color3(String); Cur->bHas_Kd = true;
+		}
+		else if (mtl_keyword_match(String, "Ks")) {
+			Cur->Ks = mtl_parse_color3(String); Cur->bHas_Ks = true;
+		}
+		else if (mtl_keyword_match(String, "Ke")) {
+			Cur->Ke = mtl_parse_color3(String); Cur->bHas_Ke = true;
+		}
+		else if (mtl_keyword_match(String, "Tf")) {
+			Cur->Tf = mtl_parse_color3(String); Cur->bHas_Tf = true;
+		}
+		else if (mtl_keyword_match(String, "Ns")) {
+			Cur->Ns = mtl_parse_float(String); Cur->bHas_Ns = true;
+		}
+		else if (mtl_keyword_match(String, "Ni")) {
+			Cur->Ni = mtl_parse_float(String); Cur->bHas_Ni = true;
+		}
+		else if (mtl_keyword_match(String, "d")) {
+			Cur->d = mtl_parse_float(String); Cur->bHas_d = true;
+		}
+		else if (mtl_keyword_match(String, "Tr")) {
+			// Tr is the inverse of d; convert so consumers only need to look at d
+			Cur->d = 1.0f - mtl_parse_float(String); Cur->bHas_d = true;
+		}
+		else if (mtl_keyword_match(String, "illum")) {
+			char* val = find_after_next_space(String);
+			Cur->illum = (val != nullptr) ? std::atoi(val) : 0;
+			Cur->bHas_illum = true;
+		}
+		// PBR scalar extensions
+		else if (mtl_keyword_match(String, "Pr")) {
+			Cur->Pr = mtl_parse_float(String); Cur->bHas_Pr = true;
+		}
+		else if (mtl_keyword_match(String, "Pm")) {
+			Cur->Pm = mtl_parse_float(String); Cur->bHas_Pm = true;
+		}
+		else if (mtl_keyword_match(String, "Ps")) {
+			Cur->Ps = mtl_parse_float(String); Cur->bHas_Ps = true;
+		}
+		else if (mtl_keyword_match(String, "Pc")) {
+			Cur->Pc = mtl_parse_float(String); Cur->bHas_Pc = true;
+		}
+		else if (mtl_keyword_match(String, "Pcr")) {
+			Cur->Pcr = mtl_parse_float(String); Cur->bHas_Pcr = true;
+		}
+		else if (mtl_keyword_match(String, "aniso")) {
+			Cur->Aniso = mtl_parse_float(String); Cur->bHas_Aniso = true;
+		}
+		else if (mtl_keyword_match(String, "anisor")) {
+			Cur->AnisoR = mtl_parse_float(String); Cur->bHas_AnisoR = true;
+		}
+		// texture maps
+		else if (mtl_keyword_match(String, "map_Ka")) {
+			Cur->map_Ka = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Kd")) {
+			Cur->map_Kd = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Ks")) {
+			Cur->map_Ks = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Ke")) {
+			Cur->map_Ke = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Ns")) {
+			Cur->map_Ns = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_d")) {
+			Cur->map_d = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_bump") || mtl_keyword_match(String, "map_Bump") || mtl_keyword_match(String, "bump")) {
+			Cur->map_bump = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "disp")) {
+			Cur->map_disp = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "decal")) {
+			Cur->map_decal = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "refl")) {
+			Cur->map_refl = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "norm") || mtl_keyword_match(String, "map_norm") || mtl_keyword_match(String, "map_Norm")) {
+			Cur->map_norm = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Pr")) {
+			Cur->map_Pr = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Pm")) {
+			Cur->map_Pm = mtl_parse_map_filename(String);
+		}
+		else if (mtl_keyword_match(String, "map_Ps")) {
+			Cur->map_Ps = mtl_parse_map_filename(String);
+		}
+	}
 
 	fclose(FilePtr);
 	return true;

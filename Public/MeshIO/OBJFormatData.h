@@ -48,10 +48,19 @@ struct GRADIENTSPACEIO_API OBJMaterial
 
 struct GRADIENTSPACEIO_API OBJFace
 {
+	// Sentinel for MaterialID meaning "no usemtl was active when this face
+	// was parsed". -1 so callers that clamp to a valid range fall to 0.
+	static constexpr int32_t NO_MATERIAL_ASSIGNED = -1;
+
 	uint8_t FaceType : 4;			// 0 = triangle, 1 = quad, 2 = polygon
 	uint32_t FaceIndex : 28;
 
 	uint32_t GroupID;
+
+	// Index into OBJFormatData::Materials of the material active when this
+	// face was parsed (i.e. the most recent "usemtl" before the face).
+	// NO_MATERIAL_ASSIGNED means no usemtl was active.
+	int32_t MaterialID;
 };
 
 struct GRADIENTSPACEIO_API OBJFormatData
@@ -72,6 +81,12 @@ struct GRADIENTSPACEIO_API OBJFormatData
 
 	unsafe_vector<OBJGroup> Groups;
 	unsafe_vector<OBJMaterial> Materials;
+
+	// .mtl material library filenames referenced by "mtllib" lines.
+	// An OBJ file may contain multiple mtllib lines, and each line may
+	// list multiple files; all are accumulated here in encounter order.
+	// Paths are stored verbatim (typically relative to the .obj file).
+	std::vector<std::string> MTLLibs;
 };
 
 
