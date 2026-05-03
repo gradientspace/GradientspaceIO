@@ -94,7 +94,7 @@
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\..\GradientspaceCore\Public;..\..\Public</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\GradientspaceCore\Public;..\..\Public;..\..\Private</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
@@ -114,7 +114,7 @@
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\..\GradientspaceCore\Public;..\..\Public</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\GradientspaceCore\Public;..\..\Public;..\..\Private</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
@@ -136,7 +136,7 @@
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\..\GradientspaceCore\Public;..\..\Public</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\GradientspaceCore\Public;..\..\Public;..\..\Private</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
