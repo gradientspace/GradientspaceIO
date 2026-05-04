@@ -17,10 +17,12 @@
   <ItemGroup>
     <ClInclude Include="..\..\Public\*.h" />
     <ClInclude Include="..\..\Public\MeshIO\*.h" />
+    <ClInclude Include="..\..\Public\ImageIO\*.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Private\*.cpp" />
     <ClCompile Include="..\..\Private\MeshIO\*.cpp" />
+    <ClCompile Include="..\..\Private\ImageIO\*.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\GradientspaceCore\Build\vs2022\GradientspaceCore.vcxproj">
