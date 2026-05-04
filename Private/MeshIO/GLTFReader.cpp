@@ -39,8 +39,37 @@ bool read_file_to_bytes(const std::string& Path, std::vector<uint8_t>& Out)
 	return true;
 }
 
-// Resolve a buffer URI against the glTF file's directory. Data-URIs are
-// detected and rejected (caller should treat as a load failure).
+// Decode a standard base64 string (RFC 4648) into raw bytes. ASCII whitespace
+// is skipped; '=' padding terminates input. Returns false on invalid chars.
+bool decode_base64(const char* Data, size_t Size, std::vector<uint8_t>& Out)
+{
+	uint32_t Buffer = 0;
+	int BufferBits = 0;
+	for (size_t i = 0; i < Size; ++i) {
+		char c = Data[i];
+		int v;
+		if (c >= 'A' && c <= 'Z')      v = c - 'A';
+		else if (c >= 'a' && c <= 'z') v = 26 + (c - 'a');
+		else if (c >= '0' && c <= '9') v = 52 + (c - '0');
+		else if (c == '+')             v = 62;
+		else if (c == '/')             v = 63;
+		else if (c == '=')             break;
+		else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
+		else return false;
+
+		Buffer = (Buffer << 6) | (uint32_t)v;
+		BufferBits += 6;
+		if (BufferBits >= 8) {
+			BufferBits -= 8;
+			Out.push_back((uint8_t)((Buffer >> BufferBits) & 0xFF));
+		}
+	}
+	return true;
+}
+
+// Resolve a buffer URI against the glTF file's directory. Inline base64 data
+// URIs (gltf-embedded) are decoded directly; other data-URI encodings are
+// rejected (caller should treat as a load failure).
 bool resolve_buffer(
 	const std::string& RootPath,
 	const Buffer& BufInfo,
@@ -49,8 +78,19 @@ bool resolve_buffer(
 	if (!BufInfo.uri.has_value())
 		return false; // GLB-style inline buffer; handled by GLBReader, not here
 	const std::string& URI = *BufInfo.uri;
-	if (URI.rfind("data:", 0) == 0)
-		return false; // data-URI not yet supported
+	if (URI.rfind("data:", 0) == 0) {
+		// Form is "data:<mediatype>[;param]*[;base64],<payload>". Per the
+		// glTF 2.0 spec, buffer data URIs MUST be base64-encoded.
+		size_t Comma = URI.find(',');
+		if (Comma == std::string::npos)
+			return false;
+		size_t B64Pos = URI.find(";base64", 5);
+		if (B64Pos == std::string::npos || B64Pos >= Comma)
+			return false;
+		Out.clear();
+		Out.reserve(((URI.size() - Comma - 1) * 3) / 4);
+		return decode_base64(URI.data() + Comma + 1, URI.size() - Comma - 1, Out);
+	}
 
 	std::filesystem::path FullPath = std::filesystem::path(RootPath) / URI;
 	return read_file_to_bytes(FullPath.string(), Out);

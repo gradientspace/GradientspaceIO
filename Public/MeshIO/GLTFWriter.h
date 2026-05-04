@@ -20,6 +20,14 @@ struct GRADIENTSPACEIO_API WriteOptions
 };
 
 
+// How buffers[0]'s payload is delivered alongside the .gltf JSON.
+enum class BufferLayout
+{
+	Sidecar,   // write a sibling .bin file and point buffers[0].uri at it
+	Embedded,  // base64-inline BinaryBlob into buffers[0].uri as a data URI
+};
+
+
 // Convert a DenseMesh to a glTF file written at OutGLTFPath. The binary
 // payload (vertex/index data) is written to a sibling .bin file derived from
 // OutGLTFPath's stem (e.g. "model.gltf" -> "model.bin"). Both files must be
@@ -32,17 +40,16 @@ bool WriteGLTF(
 );
 
 
-// Lower-level: write an already-built Root + binary blob. The caller is
-// responsible for setting Root.buffers[0].uri (or leaving it unset if the
-// payload is being written elsewhere, e.g. as a GLB chunk). If a .bin
-// sibling needs writing, set bWriteBinarySidecar=true and the function will
-// emit BinaryBlob to "<stem>.bin" and overwrite buffers[0].uri accordingly.
+// Lower-level: write an already-built Root + binary blob. The function
+// rewrites buffers[0] to match the chosen Layout: Sidecar emits a "<stem>.bin"
+// next to the .gltf and points buffers[0].uri at it; Embedded base64-inlines
+// BinaryBlob directly into buffers[0].uri as a data URI.
 GRADIENTSPACEIO_API
 bool WriteGLTF(
 	const std::string& OutGLTFPath,
 	const GLTFFormatData::Root& Root,
 	const std::vector<uint8_t>& BinaryBlob,
-	bool bWriteBinarySidecar = true,
+	BufferLayout Layout = BufferLayout::Sidecar,
 	bool bPrettyJson = true
 );
 
