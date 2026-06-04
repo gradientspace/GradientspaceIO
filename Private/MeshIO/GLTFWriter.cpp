@@ -9,7 +9,11 @@ using namespace GS;
 using namespace GS::GLTFFormatData;
 
 
-namespace
+// Named (not anonymous) so the UE unity build doesn't ODR-collide our helpers
+// against the same-named ones in GLBWriter.cpp. Function-local `using namespace`
+// directives in the GS::GLTFWriter::* members below pull these into scope without
+// polluting the global namespace for sibling .cpp files in the unity TU.
+namespace gltf_writer_local
 {
 
 bool write_text_file(const std::string& Path, const std::string& Contents)
@@ -63,7 +67,7 @@ void encode_base64(const uint8_t* Data, size_t Size, std::string& Out)
 	}
 }
 
-} // namespace
+} // namespace gltf_writer_local
 
 
 bool GS::GLTFWriter::WriteGLTF(
@@ -73,6 +77,8 @@ bool GS::GLTFWriter::WriteGLTF(
 	BufferLayout Layout,
 	bool bPrettyJson)
 {
+	using namespace gltf_writer_local;
+
 	Root R = InRoot;
 
 	// Ensure a buffers[0] entry exists so we have somewhere to record the URI

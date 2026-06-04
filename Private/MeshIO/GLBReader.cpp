@@ -12,7 +12,11 @@ using namespace GS;
 using namespace GS::GLTFFormatData;
 
 
-namespace
+// Named (not anonymous) so the UE unity build doesn't ODR-collide our helpers
+// against the same-named ones in GLTFReader.cpp. Function-local `using namespace`
+// directives in the GS::GLBReader::* members below pull these into scope without
+// polluting the global namespace for sibling .cpp files in the unity TU.
+namespace glb_reader_local
 {
 
 bool read_file_to_bytes(const std::string& Path, std::vector<uint8_t>& Out)
@@ -45,7 +49,7 @@ bool resolve_external_buffer(
 	return read_file_to_bytes(FullPath.string(), Out);
 }
 
-} // namespace
+} // namespace glb_reader_local
 
 
 bool GS::GLBReader::ReadGLB(
@@ -54,6 +58,8 @@ bool GS::GLBReader::ReadGLB(
 	std::vector<std::vector<uint8_t>>& BuffersOut,
 	const ReadOptions& /*Options*/)
 {
+	using namespace glb_reader_local;
+
 	std::vector<uint8_t> FileBytes;
 	if (!read_file_to_bytes(Path, FileBytes))
 		return false;

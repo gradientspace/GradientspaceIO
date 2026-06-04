@@ -9,7 +9,11 @@ using namespace GS;
 using namespace GS::GLTFFormatData;
 
 
-namespace
+// Named (not anonymous) so the UE unity build doesn't ODR-collide our helpers
+// against the same-named ones in GLTFWriter.cpp. Function-local `using namespace`
+// directives in the GS::GLBWriter::* members below pull these into scope without
+// polluting the global namespace for sibling .cpp files in the unity TU.
+namespace glb_writer_local
 {
 
 // Pad an existing in-memory chunk payload up to a 4-byte boundary using the
@@ -37,7 +41,7 @@ bool write_binary_file(const std::string& Path, const std::vector<uint8_t>& Byte
 	return out.good();
 }
 
-} // namespace
+} // namespace glb_writer_local
 
 
 bool GS::GLBWriter::WriteGLB(
@@ -45,6 +49,8 @@ bool GS::GLBWriter::WriteGLB(
 	const Root& InRoot,
 	const std::vector<uint8_t>& BinaryBlob)
 {
+	using namespace glb_writer_local;
+
 	// Make a working copy of Root so we can fix up buffers[0] to match GLB rules:
 	// the GLB BIN chunk is implicitly buffers[0], so its `uri` must be unset and
 	// its `byteLength` must equal the binary payload length.

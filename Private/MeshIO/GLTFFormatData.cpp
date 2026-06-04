@@ -70,7 +70,7 @@ bool GS::GLTFFormatData::ParseElementType(const std::string& Str, EElementType& 
 	return false;
 }
 
-EElementType Accessor::GetElementType() const
+GS::GLTFFormatData::EElementType Accessor::GetElementType() const
 {
 	// Returns SCALAR as a conservative fallback if `type` is unrecognized.
 	// Callers that need to distinguish failure should use ParseElementType()
@@ -849,9 +849,9 @@ int AppendPrimitiveToDenseMesh(
 	size_t NumIndices = 0;
 	const uint32_t* IndU32 = nullptr;
 	const uint16_t* IndU16 = nullptr;
-	if (IndAccessor.componentType == EComponentType::UnsignedInt) {
+	if (IndAccessor.componentType == GS::GLTFFormatData::EComponentType::UnsignedInt) {
 		IndU32 = GetTypedAccessorPtr<uint32_t>(InRoot, Buffers, IndAccessor, 1, NumIndices);
-	} else if (IndAccessor.componentType == EComponentType::UnsignedShort) {
+	} else if (IndAccessor.componentType == GS::GLTFFormatData::EComponentType::UnsignedShort) {
 		IndU16 = GetTypedAccessorPtr<uint16_t>(InRoot, Buffers, IndAccessor, 1, NumIndices);
 	} else {
 		if (OutError) *OutError = "indices componentType not supported (must be UNSIGNED_INT or UNSIGNED_SHORT)";
